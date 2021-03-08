@@ -1,0 +1,7 @@
+ordered_startup.log
+
+data/
+
+assignments/01-lidar-odometry/src/lidar_localization/slam_data/
+assignments/02-loams/src/lidar_localization/slam_data/
+assignments/04-imu-calib/src/imu_tk/cmake-build-debug/
