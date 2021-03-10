@@ -4,6 +4,8 @@
  * @Date: 2020-11-10 14:25:03
  */
 #include <cmath>
+#include <fstream>
+#include <string>
 
 #include "imu_integration/estimator/activity.hpp"
 #include "glog/logging.h"
@@ -59,14 +61,29 @@ void Activity::Init(void) {
 
     odom_ground_truth_sub_ptr = std::make_shared<OdomSubscriber>(private_nh_, odom_config_.topic_name.ground_truth, 1000000);
     odom_estimation_pub_ = private_nh_.advertise<nav_msgs::Odometry>(odom_config_.topic_name.estimation, 500);
+
+    //open files
+    std::string path_odom_estimation;
+    std::string path_odom_groundtruth;
+
+    private_nh_.param("save/odom_estimation", path_odom_estimation, std::string("odom_estimation.txt"));
+    private_nh_.param("save/odom_groundtruth", path_odom_groundtruth, std::string("odom_groundtruth.txt"));
+
+    odom_estimation_.open(path_odom_estimation, std::ios::app);
+    odom_groundtruth_.open(path_odom_groundtruth, std::ios::app);
+
+    private_nh_.param("method", method_, std::string("median"));
 }
 
 bool Activity::Run(void) {
-    if (!ReadData())
+    if (!ReadData()) {
         return false;
+    }
+
 
     while(HasData()) {
         if (UpdatePose()) {
+            SaveTrajectory();
             PublishPose();
         }
     }
@@ -81,13 +98,12 @@ bool Activity::ReadData(void) {
     if (static_cast<size_t>(0) == imu_data_buff_.size())
         return false;
 
-    if (!initialized_) {
-        odom_ground_truth_sub_ptr->ParseData(odom_data_buff_);
+//    if (!initialized_) {
+    odom_ground_truth_sub_ptr->ParseData(odom_data_buff_);
 
-        if (static_cast<size_t>(0) == odom_data_buff_.size())
+    if (static_cast<size_t>(0) == odom_data_buff_.size())
             return false;
-    }
-
+//    }
     return true;
 }
 
@@ -96,7 +112,7 @@ bool Activity::HasData(void) {
         return false;
 
     if (
-        !initialized_ && 
+//        !initialized_ &&
         static_cast<size_t>(0) == odom_data_buff_.size()
     ) {
         return false;
@@ -126,20 +142,26 @@ bool Activity::UpdatePose(void) {
         // TODO: implement your estimation here
         //
         // get deltas:
+        size_t cur_index = imu_data_buff_.size() - 1;
+
         Eigen::Vector3d angular_delta;
-        GetAngularDelta(1, 0, angular_delta);
+        GetAngularDelta(cur_index, 0, angular_delta);
         // update orientation:
         Eigen::Matrix3d R_curr, R_prev;
         UpdateOrientation(angular_delta, R_curr, R_prev);
         // get velocity delta:
         Eigen::Vector3d vel_delta;
         double delta_t = 0.0;
-        GetVelocityDelta(1, 0, R_curr, R_prev, delta_t, vel_delta);
+        GetVelocityDelta(cur_index, 0, R_curr, R_prev, delta_t, vel_delta);
         // update position:
         UpdatePosition(delta_t, vel_delta);
         // move forward -- 
         // NOTE: this is NOT fixed. you should update your buffer according to the method of your choice:
-        imu_data_buff_.pop_front();
+//        imu_data_buff_.pop_front();
+//        odom_data_buff_.pop_front();
+        IMUData cur_data = imu_data_buff_.at(cur_index);
+        imu_data_buff_.clear();
+        imu_data_buff_.push_back(cur_data);
     }
     
     return true;
@@ -164,9 +186,10 @@ bool Activity::PublishPose() {
     Eigen::Vector3d t = pose_.block<3, 1>(0, 3);
     message_odom_.pose.pose.position.x = t.x();
     message_odom_.pose.pose.position.y = t.y();
-    message_odom_.pose.pose.position.z = t.z();  
+    message_odom_.pose.pose.position.z = t.z();
+//    LOG(INFO) << t << std::endl;
 
-    // d. set velocity:
+              // d. set velocity:
     message_odom_.twist.twist.linear.x = vel_.x();
     message_odom_.twist.twist.linear.y = vel_.y();
     message_odom_.twist.twist.linear.z = vel_.z(); 
@@ -227,8 +250,15 @@ bool Activity::GetAngularDelta(
     Eigen::Vector3d angular_vel_curr = GetUnbiasedAngularVel(imu_data_curr.angular_velocity);
     Eigen::Vector3d angular_vel_prev = GetUnbiasedAngularVel(imu_data_prev.angular_velocity);
 
-    angular_delta = 0.5*delta_t*(angular_vel_curr + angular_vel_prev);
-//    angular_delta = angular_vel_prev * delta_t; // euler method
+    if (method_ == "median") {
+        angular_delta = 0.5*delta_t*(angular_vel_curr + angular_vel_prev);
+    } else if(method_ == "euler") {
+        angular_delta = angular_vel_prev * delta_t; // euler method
+    } else {
+        LOG(ERROR) << "IMU Method Not Implemented" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
@@ -263,9 +293,15 @@ bool Activity::GetVelocityDelta(
 
     Eigen::Vector3d linear_acc_curr = GetUnbiasedLinearAcc(imu_data_curr.linear_acceleration, R_curr);
     Eigen::Vector3d linear_acc_prev = GetUnbiasedLinearAcc(imu_data_prev.linear_acceleration, R_prev);
-    
-    velocity_delta = 0.5*delta_t*(linear_acc_curr + linear_acc_prev);
-//    velocity_delta = delta_t * linear_acc_prev;
+
+    if (method_ == "median") {
+        velocity_delta = 0.5*delta_t*(linear_acc_curr + linear_acc_prev);
+    } else if(method_ == "euler") {
+        velocity_delta = delta_t * linear_acc_prev; // euler method
+    } else {
+        LOG(ERROR) << "IMU Method Not Implemented" << std::endl;
+        return false;
+    }
     return true;
 }
 
@@ -321,7 +357,48 @@ void Activity::UpdatePosition(const double &delta_t, const Eigen::Vector3d &velo
     pose_.block<3, 1>(0, 3) += delta_t*vel_ + 0.5*delta_t*velocity_delta;
     vel_ += velocity_delta;
 }
+bool Activity::SaveTrajectory() {
+    // write ground truth
+    if(odom_data_buff_.empty()) {
+        return false;
+    }
+    OdomData &odom_data = odom_data_buff_.back();
+    odom_data_buff_.clear();
 
+    double timestamp = ros::Time().toSec();
+    Eigen::Vector3d pos = odom_data.pose.block<3, 1>(0, 3);
+    Eigen::Quaternion<double> orientation(odom_data.pose.block<3, 3>(0, 0));
+    orientation.normalize();
+    LOG(INFO) << "GroundTruth: \n" << pos << "\n" << orientation.vec() << std::endl;
+    odom_groundtruth_ << timestamp << " ";
+
+    for (int i = 0; i < 3; ++i) {
+        odom_groundtruth_ << pos(i) << " ";
+    }
+    odom_groundtruth_ << orientation.x() << " " << orientation.y() << " "
+        << orientation.z() << " " << orientation.w() << std::endl;
+
+
+//    write estimation data
+    pos = pose_.block<3, 1>(0, 3);
+    orientation = Eigen::Quaternion<double>((pose_.block<3, 3>(0, 0)));
+    orientation.normalize();
+    LOG(INFO) << "Estimation: \n" << pos << "\n" << orientation.vec() << std::endl;
+
+    odom_estimation_ << timestamp << " ";
+    for (int i = 0; i < 3; ++i) {
+        odom_estimation_ << pos(i) << " ";
+    }
+    odom_estimation_ << orientation.x() << " " << orientation.y() << " "
+                     << orientation.z() << " " << orientation.w() << std::endl;
+
+    return true;
+}
+Activity::~Activity() {
+    //close file stream
+    odom_estimation_.close();
+    odom_groundtruth_.close();
+}
 
 } // namespace estimator
 

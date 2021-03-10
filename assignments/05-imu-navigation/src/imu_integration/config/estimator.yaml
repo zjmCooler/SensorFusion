@@ -4,6 +4,7 @@ imu:
         x:  0.0
         y:  0.0
         z: -9.81
+#        z:  -9.79324727
     bias:
         angular_velocity:
             x: 0.0
@@ -19,3 +20,10 @@ pose:
     topic_name: 
         ground_truth: /pose/ground_truth
         estimation: /pose/estimation
+
+save:
+    odom_estimation: /workspace/data/odom_estimation_median.txt
+    odom_groundtruth: /workspace/data/odom_groundtruth_median.txt
+
+method: median  # or euler method
+

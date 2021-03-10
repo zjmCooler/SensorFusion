@@ -12,6 +12,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 
+#include <fstream>
+#include <string>
+
 // config:
 #include "imu_integration/config/config.hpp"
 
@@ -28,8 +31,10 @@ namespace estimator {
 class Activity {
   public:
     Activity(void);
+    ~Activity();
     void Init(void);
     bool Run(void);
+
   private:
     // workflow:
     bool ReadData(void);
@@ -37,6 +42,7 @@ class Activity {
     bool UpdatePose(void);
     bool PublishPose(void);
 
+    bool SaveTrajectory();
     // utils:
     /**
      * @brief  get unbiased angular velocity in body frame
@@ -128,6 +134,10 @@ class Activity {
     Eigen::Vector3d vel_ = Eigen::Vector3d::Zero();
 
     nav_msgs::Odometry message_odom_;
+
+    std::fstream odom_estimation_, odom_groundtruth_;
+
+    std::string method_;
 };
 
 } // namespace estimator

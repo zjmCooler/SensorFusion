@@ -20,7 +20,7 @@ void IMUSubscriber::msg_callback(
   const sensor_msgs::ImuConstPtr& imu_msg_ptr
 ) {
     buff_mutex_.lock();
-
+//    LOG(INFO) << "ZZZ" << std::endl;
     // convert ROS IMU to GeographicLib compatible GNSS message:
     IMUData imu_data;
     imu_data.time = imu_msg_ptr->header.stamp.toSec();
@@ -51,6 +51,7 @@ void IMUSubscriber::ParseData(
     // pipe all available measurements to output buffer:
     if (imu_data_.size() > 0) {
         imu_data.insert(imu_data.end(), imu_data_.begin(), imu_data_.end());
+        std::cout << "ZZZ" << std::endl;
         imu_data_.clear();
     }
 
