@@ -16,7 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   tf
   eigen_conversions
-  message_generation 
+  message_generation
   std_srvs
 )
 

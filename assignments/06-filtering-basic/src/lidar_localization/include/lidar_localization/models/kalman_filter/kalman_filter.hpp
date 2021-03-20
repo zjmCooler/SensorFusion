@@ -212,6 +212,8 @@ protected:
         struct {
             double GYRO;
             double ACCEL;
+            double GYRO_RANDOM_WALK;
+            double ACCEL_RANDOM_WALK;
         } PROCESS;
         struct {
             struct {

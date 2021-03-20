@@ -95,7 +95,7 @@ public:
 private:
     // dimensions:
     static const int DIM_STATE = 15;
-    static const int DIM_PROCESS_NOISE = 6;
+    static const int DIM_PROCESS_NOISE = 12;
 
     static const int DIM_MEASUREMENT_POSE = 6;
     static const int DIM_MEASUREMENT_POSE_NOISE = 6;
@@ -110,11 +110,12 @@ private:
     static const int INDEX_ERROR_POS = 0;
     static const int INDEX_ERROR_VEL = 3;
     static const int INDEX_ERROR_ORI = 6;
-    static const int INDEX_ERROR_GYRO = 9;
-    static const int INDEX_ERROR_ACCEL = 12;
+    static const int INDEX_ERROR_ACCEL = 9;
+    static const int INDEX_ERROR_GYRO = 12;
     
     // state:
     typedef Eigen::Matrix<double,                      DIM_STATE,                              1> VectorX;
+    typedef Eigen::Matrix<double,              DIM_PROCESS_NOISE,                              1> VectorN;
     typedef Eigen::Matrix<double,                      DIM_STATE,                      DIM_STATE> MatrixP;
     // process equation:
     typedef Eigen::Matrix<double,                      DIM_STATE,                      DIM_STATE> MatrixF;
@@ -193,7 +194,8 @@ private:
      */
     bool GetAngularDelta(
         const size_t index_curr, const size_t index_prev,
-        Eigen::Vector3d &angular_delta
+        Eigen::Vector3d &angular_delta,
+        Eigen::Vector3d &angular_vel_mid
     );
     /**
      * @brief  get velocity delta
@@ -234,23 +236,25 @@ private:
      * @param  linear_acc_mid, output mid-value unbiased linear acc
      * @return void
      */
-    void UpdateOdomEstimation(Eigen::Vector3d &linear_acc_mid);
+    void UpdateOdomEstimation(Eigen::Vector3d &linear_acc_mid, Eigen::Vector3d &angular_vel_mid);
 
     /**
      * @brief  set process equation
      * @param  C_nb, rotation matrix, body frame -> navigation frame
      * @param  f_n, accel measurement in navigation frame
+     * @param  w_b, angular velocity
      * @return void
      */
     void SetProcessEquation(
-        const Eigen::Matrix3d &C_nb, const Eigen::Vector3d &f_n
+        const Eigen::Matrix3d &C_nb, const Eigen::Vector3d &f_n, const Eigen::Vector3d& w_b
     );
     /**
      * @brief  update process equation
      * @param  linear_acc_mid, input mid-value unbiased linear acc
+     * @param angular_vel_mid, input mid-value unbiased angular velocity
      * @return void
      */
-    void UpdateProcessEquation(const Eigen::Vector3d &linear_acc_mid);
+    void UpdateProcessEquation(const Eigen::Vector3d &linear_acc_mid, const Eigen::Vector3d &angular_vel_mid);
 
     /**
      * @brief  update error estimation
@@ -259,7 +263,8 @@ private:
      */
     void UpdateErrorEstimation(
         const double &T,
-        const Eigen::Vector3d &linear_acc_mid
+        const Eigen::Vector3d &linear_acc_mid,
+        const Eigen::Vector3d &angular_vel_mid
     );
 
     /**
@@ -349,6 +354,7 @@ private:
 
     // state:
     VectorX X_ = VectorX::Zero();
+    VectorN NoiseVec_ = VectorN::Zero();
     MatrixP P_ = MatrixP::Zero();
     // process & measurement equations:
     MatrixF F_ = MatrixF::Zero();

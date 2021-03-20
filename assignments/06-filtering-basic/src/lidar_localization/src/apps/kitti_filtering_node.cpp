@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
     FLAGS_log_dir = WORK_SPACE_PATH + "/Log";
     FLAGS_alsologtostderr = 1;
+    FLAGS_colorlogtostderr = 1;
 
     ros::init(argc, argv, "kitti_filtering_node");
     ros::NodeHandle nh;
