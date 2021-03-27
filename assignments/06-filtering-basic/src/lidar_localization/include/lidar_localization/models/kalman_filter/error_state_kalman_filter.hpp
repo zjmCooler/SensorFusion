@@ -131,7 +131,7 @@ private:
 
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSE,     DIM_MEASUREMENT_POSE_NOISE> MatrixCPose;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSE_VEL, DIM_MEASUREMENT_POSE_VEL_NOISE> MatrixCPoseVel;
-    typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1, DIM_MEASUREMENT_POSE_VEL_NOISE> MatrixCPoseVelCons;
+    typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1, DIM_MEASUREMENT_POSE_VEL_NOISE - 1> MatrixCPoseVelCons;
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSI,     DIM_MEASUREMENT_POSI_NOISE> MatrixCPosi;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSI_VEL, DIM_MEASUREMENT_POSI_VEL_NOISE> MatrixCPosiVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSI_VEL - 1, DIM_MEASUREMENT_POSI_VEL_NOISE> MatrixCPosiVelCons;
@@ -276,6 +276,12 @@ private:
         const Eigen::Matrix4d &T_nb,
         Eigen::VectorXd &Y, Eigen::MatrixXd &G, Eigen::MatrixXd &K
     );
+    void CorrectErrorEstimationPoseVelCons(
+        const Eigen::Matrix4d &T_nb,
+        const Eigen::Vector3d &v_b,
+        const Eigen::Vector3d &w_b,
+        Eigen::VectorXd &Y, Eigen::MatrixXd &G, Eigen::MatrixXd &K
+    );
 
     /**
      * @brief  correct error estimation
@@ -377,6 +383,7 @@ private:
 
     MatrixRPose RPose_ = MatrixRPose::Zero();
     MatrixRPoseVel RPoseVel_ = MatrixRPoseVel::Zero();
+    MatrixRPoseVelCons RPoseVelCons_  = MatrixRPoseVelCons::Zero();
     MatrixRPosi RPosi_ = MatrixRPosi::Zero();
     MatrixRPosiVel RPosiVel_ = MatrixRPosiVel::Zero();
 
@@ -388,6 +395,7 @@ private:
     // measurement:
     VectorYPose YPose_;
     VectorYPoseVel YPoseVel_;
+    VectorYPoseVelCons YPoseVelCons_;
     VectorYPosi YPosi_;
     VectorYPosiVel YPosiVel_;
 };

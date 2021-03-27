@@ -8,13 +8,16 @@
 #define LIDAR_LOCALIZATION_MODELS_KALMAN_FILTER_ERROR_STATE_KALMAN_FILTER_HPP_
 
 #include "lidar_localization/models/kalman_filter/kalman_filter.hpp"
+#include <fstream>
 
 namespace lidar_localization {
 
 class ErrorStateKalmanFilter : public KalmanFilter {
 public:
     ErrorStateKalmanFilter(const YAML::Node& node);
-
+    ~ErrorStateKalmanFilter() {
+//        v_yz_output.close();
+    }
     /**
      * @brief  init filter
      * @param  imu_data, input IMU measurements
@@ -56,6 +59,8 @@ public:
         const double &time, const MeasurementType &measurement_type, 
         const Eigen::Matrix4f &T_nb, const Eigen::Vector3f &v_b
     );
+
+//    bool SaveVelYZ();
     
     /**
      * @brief  get odometry estimation
@@ -124,6 +129,7 @@ private:
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSE,                      DIM_STATE> MatrixGPose;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSE_VEL,                      DIM_STATE> MatrixGPoseVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1,                      DIM_STATE> MatrixGPoseVelCons;
+    typedef Eigen::Matrix<double, DIM_MEASUREMENT_POSE_VEL - 1, DIM_STATE> MatrixGPoseVelMotion;
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSI,                      DIM_STATE> MatrixGPosi;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSI_VEL,                      DIM_STATE> MatrixGPosiVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSI_VEL - 1,                      DIM_STATE> MatrixGPosiVelCons;
@@ -131,6 +137,7 @@ private:
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSE,     DIM_MEASUREMENT_POSE_NOISE> MatrixCPose;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSE_VEL, DIM_MEASUREMENT_POSE_VEL_NOISE> MatrixCPoseVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1, DIM_MEASUREMENT_POSE_VEL_NOISE> MatrixCPoseVelCons;
+    typedef Eigen::Matrix<double, DIM_MEASUREMENT_POSE_VEL - 1, DIM_MEASUREMENT_POSE_VEL_NOISE - 1> MatrixCPoseVelMotion;
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSI,     DIM_MEASUREMENT_POSI_NOISE> MatrixCPosi;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSI_VEL, DIM_MEASUREMENT_POSI_VEL_NOISE> MatrixCPosiVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSI_VEL - 1, DIM_MEASUREMENT_POSI_VEL_NOISE> MatrixCPosiVelCons;
@@ -138,6 +145,7 @@ private:
     typedef Eigen::Matrix<double,         DIM_MEASUREMENT_POSE_NOISE,         DIM_MEASUREMENT_POSE_NOISE> MatrixRPose;
     typedef Eigen::Matrix<double,     DIM_MEASUREMENT_POSE_VEL_NOISE,     DIM_MEASUREMENT_POSE_VEL_NOISE> MatrixRPoseVel;
     typedef Eigen::Matrix<double, DIM_MEASUREMENT_POSE_VEL_NOISE - 1, DIM_MEASUREMENT_POSE_VEL_NOISE - 1> MatrixRPoseVelCons;
+    typedef Eigen::Matrix<double, DIM_MEASUREMENT_POSE_VEL_NOISE - 1, DIM_MEASUREMENT_POSE_VEL_NOISE - 1> MatrixRPoseVelMotion;
     typedef Eigen::Matrix<double,         DIM_MEASUREMENT_POSI_NOISE,         DIM_MEASUREMENT_POSI_NOISE> MatrixRPosi;
     typedef Eigen::Matrix<double,     DIM_MEASUREMENT_POSI_VEL_NOISE,     DIM_MEASUREMENT_POSI_VEL_NOISE> MatrixRPosiVel;
     typedef Eigen::Matrix<double, DIM_MEASUREMENT_POSI_VEL_NOISE - 1, DIM_MEASUREMENT_POSI_VEL_NOISE - 1> MatrixRPosiVelCons;
@@ -146,6 +154,7 @@ private:
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSE,                              1> VectorYPose;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSE_VEL,                              1> VectorYPoseVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1,                              1> VectorYPoseVelCons;
+    typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSE_VEL - 1,                              1> VectorYPoseVelMotion;
     typedef Eigen::Matrix<double,           DIM_MEASUREMENT_POSI,                              1> VectorYPosi;
     typedef Eigen::Matrix<double,       DIM_MEASUREMENT_POSI_VEL,                              1> VectorYPosiVel;
     typedef Eigen::Matrix<double,   DIM_MEASUREMENT_POSI_VEL - 1,                              1> VectorYPosiVelCons;
@@ -396,6 +405,8 @@ private:
     MatrixGPose GPose_ = MatrixGPose::Zero();
     MatrixGPoseVel GPoseVel_ = MatrixGPoseVel::Zero();
     MatrixGPoseVelCons GPoseVelCons_ = MatrixGPoseVelCons::Zero();
+
+
     MatrixGPosi GPosi_ = MatrixGPosi::Zero();
     MatrixGPosiVel GPosiVel_ = MatrixGPosiVel::Zero();
     MatrixGPosiVelCons GPosiVelCons_ = MatrixGPosiVelCons::Zero();
@@ -422,6 +433,8 @@ private:
     VectorYPoseVel YPoseVel_;
     VectorYPosi YPosi_;
     VectorYPosiVel YPosiVel_;
+
+//    std::fstream v_yz_output;
 };
 
 } // namespace lidar_localization

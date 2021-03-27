@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <ostream>
+#include <string>
 
 // use sophus to handle so3 hat & SO3 log operations:
 #include <sophus/so3.hpp>
@@ -99,9 +100,10 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter(const YAML::Node& node) {
     // d. measurement noise:
     RPose_.block<3, 3>(0, 0) = COV.MEASUREMENT.POSE.POSI*Eigen::Matrix3d::Identity();
     RPose_.block<3, 3>(3, 3) = COV.MEASUREMENT.POSE.ORI*Eigen::Matrix3d::Identity();
+
     RPoseVel_.block<3, 3>(0, 0) = COV.MEASUREMENT.POSE.POSI*Eigen::Matrix3d::Identity();
-    RPoseVel_.block<3, 3>(3, 3) = COV.MEASUREMENT.POSE.ORI*Eigen::Matrix3d::Identity();
-    RPoseVel_.block<3, 3>(6, 6) = COV.MEASUREMENT.VEL*Eigen::Matrix3d::Identity();
+    RPoseVel_.block<3, 3>(3, 3) = COV.MEASUREMENT.VEL*Eigen::Matrix3d::Identity();
+    RPoseVel_.block<3, 3>(6, 6) = COV.MEASUREMENT.POSE.ORI*Eigen::Matrix3d::Identity();
 
     RPosi_.block<3, 3>(0, 0) = COV.MEASUREMENT.POSI*Eigen::Matrix3d::Identity();
 
@@ -120,13 +122,14 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter(const YAML::Node& node) {
     CPose_.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
 
     GPoseVel_.block<3, 3>(0, INDEX_ERROR_POS) = Eigen::Matrix3d::Identity();
-    GPoseVel_.block<3, 3>(3, INDEX_ERROR_ORI) = Eigen::Matrix3d::Identity();
+    GPoseVel_.block<3, 3>(6, INDEX_ERROR_ORI) = Eigen::Matrix3d::Identity();
     CPoseVel_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
     CPoseVel_.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
     CPoseVel_.block<3, 3>(6, 6) = Eigen::Matrix3d::Identity();
 
-    GPoseVelCons_.block<7, DIM_STATE>(0, 0) = GPoseVel_.block<7, DIM_STATE>(0, 0);
-    GPoseVelCons_.block<1, DIM_STATE>(7, 0) = GPoseVel_.block<1, DIM_STATE>(8, 0);
+
+    GPoseVelCons_.block<3, DIM_STATE>(0, 0) = GPoseVel_.block<3, DIM_STATE>(0, 0);
+    GPoseVelCons_.block<3, DIM_STATE>(5, 0) = GPoseVel_.block<3, DIM_STATE>(6, 0);
     CPoseVelCons_.block<7, 7>(0, 0) = Eigen::Matrix<double, 7, 7>::Identity();
     CPoseVelCons_(7, 8) = 1.0;
 
@@ -147,6 +150,9 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter(const YAML::Node& node) {
     QPoseVel_.block<DIM_MEASUREMENT_POSE_VEL, DIM_STATE>(0, 0) = GPoseVel_;
     QPosi_.block<DIM_MEASUREMENT_POSI, DIM_STATE>(0, 0) = GPosi_;
     QPosiVel_.block<DIM_MEASUREMENT_POSI_VEL, DIM_STATE>(0, 0) = GPosiVel_;
+
+//    std::string out_path = WORK_SPACE_PATH + "/slam_data/v_yz.txt";
+//    v_yz_output.open(out_path, std::ios::out);
 }
 
 /**
@@ -259,6 +265,7 @@ bool ErrorStateKalmanFilter::Correct(
         // eliminate error:
         EliminateError();
 
+//        SaveVelYZ();
         // reset error state:
         ResetState();
 
@@ -671,28 +678,32 @@ void ErrorStateKalmanFilter::CorrectErrorEstimationPoseVel(
     Eigen::Vector3d v_bb_obs = pose_.block<3, 3>(0,0).transpose()*vel_ - v_b;
 
     YPoseVel_.block<3, 1>(0, 0) = P_nn_obs;
-    YPoseVel_.block<3, 1>(3, 0) = Sophus::SO3d::vee(Eigen::Matrix3d::Identity() - C_nn_obs);
-    YPoseVel_.block<3, 1>(6, 0) = v_bb_obs;
+    YPoseVel_.block<3, 1>(3, 0) = v_bb_obs;
+    YPoseVel_.block<3, 1>(6, 0) = Sophus::SO3d::vee(Eigen::Matrix3d::Identity() - C_nn_obs);
+
 
     Y = YPoseVel_;
 
     // set measurement equation:
-    GPoseVel_.block<3, 3>(6, INDEX_ERROR_VEL) =  pose_.block<3, 3>(0,0).transpose();
-    GPoseVel_.block<3, 3>(6, INDEX_ERROR_ORI) = -pose_.block<3, 3>(0,0).transpose()*Sophus::SO3d::hat(vel_);
+    GPoseVel_.block<3, 3>(3, INDEX_ERROR_VEL) =  pose_.block<3, 3>(0,0).transpose();
+    GPoseVel_.block<3, 3>(3, INDEX_ERROR_ORI) = -pose_.block<3, 3>(0,0).transpose()*Sophus::SO3d::hat(vel_);
 
     G = GPoseVel_;
 
     if ( !IsTurning(w_b) && MOTION_CONSTRAINT.ACTIVATED ) {
         // set measurement, with motion constraint:
         VectorYPoseVelCons YPoseVelCons = VectorYPoseVelCons::Zero();
-        YPoseVelCons.block<7, 1>(0, 0) = YPoseVel_.block<7, 1>(0, 0);
-        YPoseVelCons(7, 0) = YPoseVel_(8, 0);
+        YPoseVelCons.block<3, 1>(0, 0) = YPoseVel_.block<3, 1>(0, 0);
+        YPoseVelCons.block<2, 1>(3, 0) = YPoseVel_.block<2, 1>(4, 0);
+        YPoseVelCons.block<3, 1>(5, 0) = YPoseVel_.block<3, 1>(6, 0);
+
 
         Y = YPoseVelCons;
 
         // set measurement equation, with motion constraint:
-        GPoseVelCons_.block<1, DIM_STATE>(6, 0) = GPoseVel_.block<1, DIM_STATE>(6, 0);
-        GPoseVelCons_.block<1, DIM_STATE>(7, 0) = GPoseVel_.block<1, DIM_STATE>(8, 0);
+        GPoseVelCons_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+        GPoseVelCons_.block<3, 3>(5, 6) = Eigen::Matrix3d::Identity();
+        GPoseVelCons_.block<2, DIM_STATE>(3, 0) = GPoseVel_.block<2, DIM_STATE>(4, 0);
 
         G = GPoseVelCons_;
 
@@ -1047,5 +1058,11 @@ bool ErrorStateKalmanFilter::SaveObservabilityAnalysis(
 
     return true;
 }
+//bool ErrorStateKalmanFilter::SaveVelYZ() {
+//
+//    v_yz_output << X_(4) << "\t" << X_(5) << std::endl;
+//
+//    return true;
+//}
 
 } // namespace lidar_localization
