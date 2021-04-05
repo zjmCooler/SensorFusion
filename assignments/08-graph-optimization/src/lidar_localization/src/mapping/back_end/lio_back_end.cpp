@@ -295,9 +295,9 @@ bool LIOBackEnd::AddNodeAndEdge(const PoseData& gnss_data) {
     //
     // fix the pose of the first key frame for lidar only mapping:
     if (!graph_optimizer_config_.use_gnss && graph_optimizer_ptr_->GetNodeNum() == 0) {
-        graph_optimizer_ptr_->AddPRVAGNode(current_key_frame_, true);
+        graph_optimizer_ptr_->AddPRVAGNode(current_key_gnss_, true);
     } else {
-        graph_optimizer_ptr_->AddPRVAGNode(current_key_gnss_, false);
+        graph_optimizer_ptr_->AddPRVAGNode(current_key_frame_, false);
     }
 
     //
@@ -419,11 +419,11 @@ bool LIOBackEnd::SaveOptimizedPose() {
     // write GNSS/IMU pose and lidar odometry estimation as trajectory for evo evaluation:
     for (size_t i = 0; i < optimized_key_frames_.size(); ++i) {
         // a. ground truth, IMU/GNSS:
-        current_pose = key_frames_deque_.at(i).pose;
+        current_pose = key_gnss_deque_.at(i).pose;
         current_pose(2, 3) = 0.0f;
         SavePose(ground_truth_ofs_, current_pose);
         // b. lidar odometry:
-        current_pose = key_gnss_deque_.at(i).pose;
+        current_pose = key_frames_deque_.at(i).pose;
         current_pose(2, 3) = 0.0f;
         SavePose(laser_odom_ofs_, current_pose);
         // c. optimized odometry:

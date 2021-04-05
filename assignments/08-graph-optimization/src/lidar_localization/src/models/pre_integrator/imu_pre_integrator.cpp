@@ -230,19 +230,30 @@ void IMUPreIntegrator::UpdateState(void) {
     // 1. get w_mid:
     w_mid = 0.5 * (prev_w + curr_w);
     // 2. update relative orientation, so3:
+    prev_theta_ij = state.theta_ij_;
     d_theta_ij = Sophus::SO3d::exp(w_mid * T);
     curr_theta_ij = prev_theta_ij * d_theta_ij;
     // 3. get a_mid:
-    a_mid = 0.5 * (prev_theta_ij.matrix() * (prev_a - state.b_a_i_) + curr_theta_ij.matrix() * (curr_a - state.b_a_i_));
+    a_mid = 0.5 * (prev_theta_ij * prev_a + curr_theta_ij * curr_a);
     // 4. update relative velocity:
+    Eigen::Vector3d curr_alpha_ij = state.alpha_ij_ + state.beta_ij_ * T + 0.5 * a_mid * T * T;
     Eigen::Vector3d curr_beta_ij = state.beta_ij_ + a_mid * T;
     // 5. update relative translation:
-    Eigen::Matrix3d curr_alpha_ij = state.alpha_ij_ + state.beta_ij_ * T + 0.5 * a_mid * T * T;
+//    Eigen::Vector3d curr_alpha_ij = state.alpha_ij_ + state.beta_ij_ * T + 0.5 * a_mid * T * T;
+
+    state.alpha_ij_ = curr_alpha_ij;
+    state.beta_ij_ = curr_beta_ij;
+    state.theta_ij_ = curr_theta_ij;
     //
     // TODO: b. update covariance:
     //
     // 1. intermediate results:
-    Eigen::Matrix3d f12 = -0.25 * T * T * ()
+    prev_R = prev_theta_ij.matrix();
+    curr_R = curr_theta_ij.matrix();
+    prev_R_a_hat = prev_R * Sophus::SO3d::hat(prev_a);
+    curr_R_a_hat = curr_R * Sophus::SO3d::hat(curr_a);
+//    dR_inv = Eigen::Matrix3d::Identity()  - T * Sophus::SO3d::hat(w_mid).matrix();
+    dR_inv = d_theta_ij.inverse().matrix();
     //
     // TODO: 2. set up F:
     //
@@ -250,6 +261,17 @@ void IMUPreIntegrator::UpdateState(void) {
     // F14 & F34:
     // F15 & F35:
     // F22:
+    F_.block<3, 3>(INDEX_ALPHA, INDEX_THETA) = -0.25  * T * (prev_R_a_hat + curr_R_a_hat * dR_inv);
+    F_.block<3, 3>(INDEX_ALPHA, INDEX_B_A) = -0.25 * T * (prev_R + curr_R);
+    F_.block<3, 3>(INDEX_ALPHA, INDEX_B_G) = 0.25 * T * T * curr_R_a_hat;
+
+    F_.block<3, 3>(INDEX_BETA, INDEX_THETA) = -0.5 * (prev_R_a_hat + curr_R_a_hat * dR_inv);
+    F_.block<3, 3>(INDEX_BETA, INDEX_B_A) = -0.5 * (prev_R + curr_R);
+    F_.block<3, 3>(INDEX_BETA, INDEX_B_G) = 0.5 * T * curr_R_a_hat;
+
+    F_.block<3, 3>(INDEX_THETA, INDEX_THETA) = -Sophus::SO3d::hat(w_mid);
+
+    MatrixF F = MatrixF::Identity() + T * F_;
 
     //
     // TODO: 3. set up G:
@@ -258,12 +280,29 @@ void IMUPreIntegrator::UpdateState(void) {
     // G12 & G32:
     // G13 & G33:
     // G14 & G34:
+    B_.block<3, 3>(INDEX_ALPHA, INDEX_M_ACC_PREV) = 0.25 * T * prev_R;
+    B_.block<3, 3>(INDEX_ALPHA, INDEX_M_GYR_PREV) = -0.125 * T * T * curr_R_a_hat;
+    B_.block<3, 3>(INDEX_ALPHA, INDEX_M_ACC_CURR) = 0.25 * T * curr_R;
+    B_.block<3, 3>(INDEX_ALPHA, INDEX_M_GYR_CURR) = -0.125 * T * T * curr_R_a_hat;
 
-    // TODO: 4. update P_:
+    B_.block<3, 3>(INDEX_THETA, INDEX_M_GYR_PREV) = 0.5 * T * Eigen::Matrix3d::Identity();
+    B_.block<3, 3>(INDEX_THETA, INDEX_M_GYR_CURR) = 0.5 * T * Eigen::Matrix3d::Identity();
 
-    // 
+    B_.block<3, 3>(INDEX_BETA, INDEX_M_ACC_PREV) = 0.5 * prev_R;
+    B_.block<3, 3>(INDEX_BETA, INDEX_M_GYR_PREV) = -0.25 * T * curr_R_a_hat;
+    B_.block<3, 3>(INDEX_BETA, INDEX_M_ACC_CURR) = 0.5 * curr_R;
+    B_.block<3, 3>(INDEX_BETA, INDEX_M_GYR_CURR) = -0.25 * T * curr_R_a_hat;
+
+    B_.block<3, 3>(INDEX_B_A, INDEX_R_ACC_PREV) = T * Eigen::Matrix3d::Identity();
+    B_.block<3, 3>(INDEX_B_G, INDEX_R_GYR_PREV) = T * Eigen::Matrix3d::Identity();
+    MatrixB  B = T * B_;
+
+    // TODO: 4. update state and P_:
+    P_ = F * P_ * F.transpose() + B * Q_ * B.transpose();
+    //
     // TODO: 5. update Jacobian:
     //
+    J_ = F * J_;
 }
 
 } // namespace lidar_localization
