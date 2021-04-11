@@ -15,7 +15,7 @@ key_frame:
 #
 # sliding window size:
 #
-sliding_window_size: 20
+sliding_window_size: 30
 
 #
 # select measurements:
@@ -29,8 +29,10 @@ measurements:
 #
 lidar_odometry:
     noise: [1.0, 1.0, 1.0, 0.01, 0.01, 0.01] # x y z yaw roll pitch
+#    noise: [2.5e-1, 2.5e-1, 2.5e-1, 0.001, 0.001, 0.001] # x y z yaw roll pitch
 
 map_matching:
+#    noise: [1.0, 1.0, 4.0, 0.01, 0.01, 0.01] # x y z yaw roll pitch
     noise: [1.0, 1.0, 4.0, 0.01, 0.01, 0.01] # x y z yaw roll pitch
 
 gnss_position:
@@ -45,5 +47,5 @@ imu_pre_integration:
             accel: 2.5e-3
             gyro: 1.0e-4
         random_walk:
-            accel: 1.0e-4
-            gyro: 1.0e-4
+            accel: 1.0e-8
+            gyro: 1.0e-8

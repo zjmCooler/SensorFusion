@@ -52,7 +52,7 @@ public:
         //
         // TODO: get square root of information matrix:
         //
-        Eigen::Matrix<double, 15, 15> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(I_).matrixL().transpose();
+        Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(I_).matrixL().transpose();
         //
         // TODO: compute residual:
         //
@@ -66,8 +66,9 @@ public:
         if (jacobians) {
             if (jacobians[0]) {
                 // implement jacobian computing:
-                Eigen::Map<Eigen::Matrix<double, 6, 15, Eigen::RowMajor>> jac_i(jacobians[1]);
+                Eigen::Map<Eigen::Matrix<double, 6, 15, Eigen::RowMajor>> jac_i(jacobians[0]);
                 jac_i.setZero();
+
                 jac_i.block<3, 3>(INDEX_P, INDEX_P) = Eigen::Matrix3d::Identity();
                 const Eigen::Matrix3d J_r_inv = JacobianRInv(residual.block<3, 1>(INDEX_R, 0));
                 jac_i.block<3, 3>(INDEX_R, INDEX_R) = J_r_inv * ori_prior.matrix();

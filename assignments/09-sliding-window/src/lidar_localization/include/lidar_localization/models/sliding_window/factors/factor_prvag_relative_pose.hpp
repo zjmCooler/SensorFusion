@@ -58,7 +58,7 @@ public:
     // TODO: get square root of information matrix:
     //
     //取
-    Eigen::Matrix<double, 15, 15> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(I_).matrixL().transpose();
+    Eigen::Matrix<double, 6, 6> sqrt_info = Eigen::LLT<Eigen::Matrix<double, 6, 6>>(I_).matrixL().transpose();
 
     //
     // TODO: compute residual:
@@ -82,7 +82,7 @@ public:
 
 //        jac_i.block<3, 3>(INDEX_P, INDEX_P) = -ori_i.inverse().matrix();
         jac_i.block<3, 3>(INDEX_P, INDEX_P) = -R_i_inv;
-        jac_i.block<3, 3>(INDEX_R, INDEX_R) = -J_r_inv * (ori_ij * ori_j.inverse()).matrix();
+        jac_i.block<3, 3>(INDEX_R, INDEX_R) = -J_r_inv * (ori_ij * ori_j.inverse() * ori_i).matrix();
 
         jac_i = sqrt_info * jac_i;
       }
@@ -92,7 +92,7 @@ public:
           Eigen::Map<Eigen::Matrix<double, 6, 15, Eigen::RowMajor>> jac_j(jacobians[1]);
           jac_j.setZero();
           jac_j.block<3, 3>(INDEX_P, INDEX_P) = R_i_inv;
-          jac_j.block<3, 3>(INDEX_R, INDEX_R) = J_r_inv * (ori_ij * ori_j.inverse()).matrix();
+          jac_j.block<3, 3>(INDEX_R, INDEX_R) = J_r_inv * ori_ij.matrix();
 
           jac_j = sqrt_info * jac_j;
       }
